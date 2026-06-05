@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>NMIXX Video Call - 專屬自習室</title>
+    <style>
+        body { margin: 0; background-color: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+        
+        /* NMIXX 官方大廳 */
+        .login-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(10, 10, 12, 0.88); backdrop-filter: blur(20px);
+            display: flex; justify-content: center; align-items: center; z-index: 999;
+        }
+        .login-box { background: #18181c; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 35px; width: 380px; box-shadow: 0 25px 50px rgba(0,0,0,0.7); text-align: center; }
+        .login-logo { font-size: 22px; font-weight: 800; color: #ffffff; margin-bottom: 8px; letter-spacing: 1.5px; text-transform: uppercase; }
+        .login-logo span { color: #0e71eb; }
+        .login-sub-logo { font-size: 12px; color: #0e71eb; font-weight: 600; letter-spacing: 4px; margin-bottom: 24px; text-transform: uppercase; opacity: 0.9; }
+        .login-box b { color: #0e71eb; background: rgba(14, 113, 235, 0.1); padding: 2px 6px; border-radius: 4px; }
+        .login-box p { color: #a1a1a5; font-size: 13px; margin-bottom: 24px; letter-spacing: 0.5px; }
+        .login-input { width: 100%; background: #252529; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; color: #fff; font-size: 15px; outline: none; box-sizing: border-box; margin-bottom: 20px; text-align: center; }
+        .btn-join { width: 100%; background: #0e71eb; border: none; color: white; border-radius: 8px; padding: 12px; font-size: 15px; cursor: pointer; font-weight: bold; }
+
+        /* 主體容器 */
+        .main-wrapper { display: flex; height: calc(100vh - 60px); background: #050505; position: relative; }
+        .container { flex: 1; display: flex; padding: 10px; box-sizing: border-box; gap: 10px; position: relative; }
+        
+        /* 高級半透明滑出式自習計時器 UI */
+        .timer-overlay {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(24, 24, 28, 0.85); border: 1px solid rgba(255,255,255,0.1);
+            padding: 8px 16px; border-radius: 30px; display: none; align-items: center; gap: 12px;
+            backdrop-filter: blur(10px); z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .timer-display { font-size: 18px; font-weight: bold; font-family: monospace; color: #0e71eb; }
+        .timer-btn { background: #333; border: none; color: white; padding: 4px 10px; border-radius: 15px; font-size: 12px; cursor: pointer; }
+        .timer-select { background: #222; color: white; border: 1px solid #444; border-radius: 4px; font-size: 12px; padding: 2px; }
+
+        /* 視訊視窗 */
+        .video-box { flex: 1; position: relative; background: #141414; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+        video.idol-video { width: 100%; height: 100%; object-fit: cover; }
+        
+        .my-box { flex: 1; background: linear-gradient(145deg, #23272a, #141619); border-radius: 8px; position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.5); overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        #webcam { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: none; }
+        .avatar-circle { width: 120px; height: 120px; background-color: #0e71eb; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 48px; font-weight: 500; color: #ffffff; box-shadow: 0 8px 24px rgba(0,0,0,0.3); z-index: 2; }
+        
+        .zoom-name-tag { position: absolute; bottom: 12px; left: 12px; background: rgba(0, 0, 0, 0.6); padding: 4px 12px; border-radius: 4px; font-size: 14px; display: flex; align-items: center; gap: 6px; backdrop-filter: blur(4px); z-index: 10; }
+        .mic-icon-active { width: 12px; height: 12px; filter: invert(1); }
+        
+        /* 側邊聊天室 */
+        .chat-panel { width: 0; background: #1a1a1c; border-left: 1px solid #2d2d30; display: flex; flex-direction: column; transition: width 0.3s ease; overflow: hidden; }
+        .chat-panel.open { width: 320px; }
+        .chat-header { padding: 16px; font-size: 16px; font-weight: bold; border-bottom: 1px solid #2d2d30; color: #fff; }
+        .chat-messages { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        
+        .msg { font-size: 13px; line-height: 1.4; }
+        .msg-meta { font-weight: bold; color: #0e71eb; margin-bottom: 2px; font-size: 12px; }
+        .msg-meta.idol { color: #ff4a4a; }
+        .msg-time { color: #747678; font-weight: normal; margin-left: 6px; }
+        .msg-text { background: rgba(255,255,255,0.05); padding: 8px 10px; border-radius: 6px; color: #e3e4e6; display: inline-block; max-width: 90%; word-break: break-all; }
+        .msg-text.idol-text { background: rgba(255, 74, 74, 0.1); border: 1px solid rgba(255, 74, 74, 0.2); }
+        .typing-indicator { color: #747678; font-size: 12px; font-style: italic; display: none; margin-left: 4px; }
+
+        .chat-input-area { padding: 12px; border-top: 1px solid #2d2d30; display: flex; gap: 8px; }
+        .chat-input { flex: 1; background: #2e2e32; border: 1px solid #4e4e52; border-radius: 6px; padding: 8px 12px; color: #fff; font-size: 13px; outline: none; }
+        .btn-send { background: #0e71eb; border: none; color: white; border-radius: 6px; padding: 0 14px; font-size: 13px; cursor: pointer; font-weight: bold; }
+        
+        /* 下方工具列 */
+        .toolbar { height: 60px; background-color: #16161a; display: flex; justify-content: center; align-items: center; gap: 16px; border-top: 1px solid #222; position: relative; z-index: 20; }
+        .icon { width: 40px; height: 40px; background: rgba(255, 255, 255, 0.06); border-radius: 8px; cursor: pointer; display: flex; justify-content: center; align-items: center; transition: all 0.2s; position: relative; }
+        .icon:hover { background: rgba(255, 255, 255, 0.12); }
+        .icon img { width: 18px; height: 18px; filter: invert(0.8); }
+        .icon.disabled { background: #e02828 !important; }
+        .icon.disabled img { filter: invert(1) !important; }
+        .icon.active { background: rgba(14, 113, 235, 0.3) !important; border: 1px solid #0e71eb; }
+        .icon.active img { filter: invert(1) !important; }
+        
+        .badge-red-dot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; background-color: #ff3b3b; border-radius: 50%; display: none; box-shadow: 0 0 6px #ff3b3b; z-index: 5; }
+        
+        .end-call { background: #e02828; border-radius: 50%; transition: background 0.2s, transform 0.1s; }
+        .end-call img { width: 16px; height: 16px; filter: invert(1); }
+        .end-call:hover { background: #ff3b3b; transform: scale(1.05); }
+    </style>
+</head>
+<body>
+
+    <!-- NMIXX 專屬大廳介面 -->
+    <div class="login-overlay" id="login-overlay">
+        <div class="login-box">
+            <div class="login-logo">NMIXX <span>Video Call</span></div>
+            <div class="login-sub-logo">Fansign Room</div>
+            <p>與 <b>설유니 ‧ 0 ‧</b> 的專屬夢幻自習室</p>
+            <input type="text" class="login-input" id="user-name-input" placeholder="請輸入您的顯示名稱" value=" " onkeydown="if(event.key==='Enter') joinMeeting()">
+            <button class="btn-join" onclick="joinMeeting()">加入會議</button>
+        </div>
+    </div>
+
+    <div class="main-wrapper">
+        <!-- 頂部滑出式自習計時器 UI -->
+        <div class="timer-overlay" id="timer-overlay">
+            <select class="timer-select" id="timer-duration">
+                <option value="1500">25 分鐘 (番茄鐘)</option>
+                <option value="2700">45 分鐘 (深度專注)</option>
+                <option value="3600">60 分鐘 (極限自習)</option>
+            </select>
+            <div class="timer-display" id="timer-display">25:00</div>
+            <button class="timer-btn" id="timer-control-btn" onclick="toggleTimer()">開始</button>
+        </div>
+
+        <div class="container">
+            <!-- 左邊：薛侖影片 -->
+            <div class="video-box">
+                <video id="idol-video" class="idol-video" src="idol.mp4" loop controls playsinline></video>
+                <div class="zoom-name-tag">
+                    <img id="idol-tag-mic" class="mic-icon-active" src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/master/svgs/solid/microphone.svg">
+                    <span>설유니 ‧ 0 ‧</span>
+                </div>
+            </div>
+            
+            <!-- 右邊：妳的真實視訊鏡頭視窗 -->
+            <div class="my-box">
+                <div class="avatar-circle" id="avatar"></div>
+                <video id="webcam" autoplay playsinline></video>
+                <div class="zoom-name-tag">
+                    <img id="my-tag-mic" class="mic-icon-active" src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/master/svgs/solid/microphone-slash.svg">
+                    <span id="my-tag-name">您的名稱 (Muted)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側聊天室 -->
+        <div class="chat-panel" id="chat-panel">
+            <div class="chat-header">會議聊天室</div>
+            <div class="chat-messages" id="chat-messages">
+                <div class="msg" id="system-welcome-msg"></div>
+                <div class="typing-indicator" id="typing-indicator">설유니 ‧ 0 ‧ 正在輸入回應...</div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" class="chat-input" id="chat-input" placeholder="輸入訊息..." onkeydown="if(event.key==='Enter') sendChatMessage()">
+                <button class="btn-send" onclick="sendChatMessage()">傳送</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 下方工具列 -->
+    <div class="toolbar">
+        <div class="icon disabled" id="btn-mic" onclick="toggleMic()" title="開關麥克風">
+            <img id="img-mic" src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/master/svgs/solid/microphone-slash.svg">
+        </div>
+        <div class="icon disabled" id="btn-cam" onclick="toggleCam()" title="開關相機">
+            <img id="img-cam" src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/master/svgs/solid/video-slash.svg">
+        </div>
+        
+        <!-- 自習計時器開關按鈕 -->
+        <div class="icon" id="btn-timer" onclick="toggleTimerPanel()" title="開啟自習計時器">
+            <img src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/master/svgs/solid/stopwatch.svg" alt="Timer">
+        </div>
+        
+        <!-- 💬 聊天室按鈕 -->
+        <div class="icon" id="btn-chat" onclick="toggleChat()" title="開啟/關慢聊天室">
+            <div class="badge-red-dot" id="chat-red-dot"></div>
+            <img src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/master/svgs/solid/comment.svg" alt="Chat">
+        </div>
+        <div class="icon end-call" onclick="window.close();" title="掛斷"><img src="https://raw.githubusercontent.com/FortAwesome/Font-Awesome/master/svgs/solid/phone-slash.svg" alt="End Call"></div>
+    </div>
+
+    <script>
+        let userName = "";
+        let localStream = null;
+        let myAudioCtx = null, myAnalyser = null;
+        let isMicActive = false, isCamActive = false, isChatOpen = false, isTimerOpen = false;
+        
+        let countdownTimer = null;
+        let timeLeft = 1500;
+        let isTimerRunning = false;
+
+        let lastUserActionTime = Date.now();
+        let checkJealousyInterval = null;
+
+        // 薛侖高甜夢女回應庫
+        function getIdolReplies(name) {
+            return {
+                hello: [
+                    `啊，${name}！(｡♥‿♥｡) 妳終於來了～ 我剛才一邊看劇本一邊一直想著妳呢，今天也要緊緊黏著我喔 (•͈⌔•͈⑅)`,
+                    `哈囉我的 ${name}～ 嘻嘻，一看到妳上線，我心跳突然跳得好快喔... 趕快坐好，我們要開始二人世界讀書會了 (灬ºωº灬)`,
+                    `${name}～等妳好久好久了 (´•̥̥̥ω•̥̥̥\`) 還以為妳今天忘記我了呢... 不管，今天妳的時間通通都是我的喔 (｡♥‿♥｡)`
+                ],
+                tired: [
+                    `唔... ${name} 累了嗎？(｡•́__•̀｡) 來，隔著螢幕抱一個！有補充滿滿的愛心能量了嗎？再陪我堅持一下下嘛 (ˊᗨˋ)`,
+                    `讀書太難了對不對？看著妳這麼辛苦我好心疼喔 (´•̥̥̥ω•̥̥̥\`) 不然...現在看著我的眼睛，我給妳一個專屬的充電啾啾 (灬ºωº灬)`,
+                    `不准放棄喔 ${name}！妳可是最讓我驕傲的人了 (๑•̀ㅂ•́)و✧ 寫完這頁，我就在螢幕前給妳跳一段撒嬌舞好不好？`,
+                    `累到想哭嗎？(｡•́__•̀｡) 沒關係，天塌下來也有我幫妳頂著！${name} 在我心裡永遠是最棒、最努力的，抱緊緊！`
+                ],
+                food: [
+                    `欸？${name} 肚子餓了嗎？(๑´ڡ\`๑) 好想親手做巧克力草莓蛋糕餵妳吃喔... 妳乖乖讀書，等一下我去幫妳買宵夜好不好？`,
+                    `肚子咕嚕咕嚕叫了？🤭 哼哼，讀書太認真了啦！${name} 快去拿點甜的，要像我一樣甜的點心才可以喔 (•͈⌔•͈⑅)`,
+                    `好想跟 ${name} 一起去吃熱呼呼的拉麵喔... 答應我，等這章節讀完，我們就一邊連線一邊一起吃大餐，不准拋下我偷吃！`
+                ],
+                beauty: [
+                    `呀啊... 突然這樣誇我，人家會害羞啦 (灬ºωº灬) 不過...只要能讓 ${name} 一直看著我、只喜歡我，那我天天扮仙女都願意 (｡♥‿♥｡)`,
+                    `我很漂亮嗎？(ﾉ∀\`*) 嘿嘿，那 ${name} 有沒有被我迷得神魂顛倒？不准看別的女偶像喔，妳眼裡只能有我！`,
+                    `謝謝我的 ${name}～ 其實啊，每次看到妳在鏡頭前為我專注的側臉，我都覺得妳才是全世界最迷人、最讓我心動的人 (•͈⌔•͈⑅)`
+                ],
+                status: [
+                    `我剛才一邊練舞，心裡其實都在偷偷想著妳今天過得好不好 (｡☌ᴗ☌｡) ${name} 呢？有沒有跟我一樣想我？`,
+                    `現在嗎？我正在看著妳呀～🤭 盯著看 ${name} 有沒有分心，如果妳敢偷看別的地方，我就要在心裡偷偷扣妳分數囉 ( • ̀ω•́ )`,
+                    `剛剛跟成員們聊天，我還忍不住炫耀說我有個全世界最棒、最貼心的 ${name} 在陪我呢，嘿嘿 (⸝⸝•⚡•⸝⸝)`
+                ],
+                study: [
+                    `哇！寫完了嗎？！${name} 怎麼這麼優秀啊 😭👍 不愧是我最喜歡的人！快過來螢幕前讓我摸摸頭 (｡♥‿♥｡)`,
+                    `考試要到了對不對？(p\`･ω･\`q) 不要怕！我每天晚上都有在心裡默默幫妳祈禱應援，我的 ${name} 絕對會拿第一名的！`,
+                    `好！那我們來打賭，如果 ${name} 接下來都很乖沒分心，等一下會議結束前，我給妳一個單獨的晚安飛吻 (｡♥‿♥｡)`
+                ],
+                love: [
+                    `天啊... 突然跟我告白，我整張臉都要燒起來了啦 (灬ºωº灬) 聽好囉 ${name}，我也超級超級、最喜歡妳了！`,
+                    `心動了嗎？(｡☌ᴗ☌｡) 那就對了！這代表妳的心已經完全被我捕獲了，這輩子都不准離開我身邊喔 (🎈)`,
+                    `嫁給妳嗎？😳 唔... 那妳要答應我，一輩子都只能寵我、對我好、每天陪我聊天讀書喔！打勾勾 (ˊᗨˋ)❤️`
+                ],
+                default: [
+                    `嗯嗯！我在聽喔，${name} 累了就要跟我說，不管什麼時候我都會在螢幕這端一直陪著妳的 (ˊᗨˋ)✨`,
+                    `嘻嘻，能這樣跟 ${name} 兩個人安安靜靜地待在一起，就算只是看著妳寫字，我都覺得好幸福喔 (•͈⌔•͈⑅)`,
+                    `怎麼啦？摸摸頭 (o´▽\`o) 遇到不會的題目沒關係，有我在這裡當妳的專屬幸運女神，下一題一定會順利的！`,
+                    `不管世界發生什麼事，我的這份連線和視訊，永遠都只為 ${name} 一個人開啟 (｡♥‿♥｡) Fighting！`
+                ],
+                timerStart: [
+                    `大戰開始囉！在接下來的計時時間裡不准看別的地方，只能看書和看我喔 ( • ̀ω•́ )✧`,
+                    `嘻嘻，開始倒數了！${name} 要專心喔～我們來比賽誰這段時間最能堅持，輸的人要給對方啵啵 (｡♥‿♥｡)`,
+                    `定好時間囉 (๑•̀ㅂ•́)و✧ 接下來是我們兩個人的專注時間，我會隔著螢幕一直溫牢地盯著妳的，加油喔寶貝！`
+                ],
+                timerPause: [
+                    `欸～怎麼按暫停了？(｡•́__•̀｡) 是不是想偷偷拿手機玩？抓到的人要被我彈額頭喔！`,
+                    `唔... 累了嗎？還是卡住了？暫停一下下可以，但休息完手手要立刻牽回書本上喔 (灬ºωº灬)`,
+                    `怎麼啦 ${name}？突然暫停是因為... 太想看我的臉所以分心了嗎？🤭 哼哼～`
+                ],
+                timerComplete: [
+                    `哇寶貝妳太棒了！(｡♥‿♥｡) 居然真的堅持完了，快休息一下，等一下獎勵妳一個大大的擁抱！`,
+                    `叮咚！時間到！🎉 ${name} 真的完成了耶，超迷人超優秀的 (•͈⌔•͈⑅) 來～把臉湊過來，我要給妳一百個摸摸頭！`,
+                    `大成功！(๑>ᴗ<๑) 辛苦啦我的小傲嬌～ 既然妳這麼棒，那現在換妳跟我說一句『我愛妳』當作我的應援獎勵吧 ❤️`
+                ],
+                micOn: [
+                    `哇～聽得到妳那邊的聲音了 (•͈⌔•͈⑅) ${name} 讀書時翻書和寫字的聲音好療癒喔，我很喜歡聽，多讓我聽一點嘛～`,
+                    `嘻嘻，妳解開靜音了！(｡♥‿♥｡) 這樣要是妳讀累了，就可以隨時開口跟我撒嬌說話囉，我一直在聽著呢！`
+                ],
+                micOff: [
+                    `欸～${name} 怎麼又靜音了 (｡•́__•̀｡) 好吧...我知道妳是為了專心，那妳認真讀，我乖乖在這邊看著妳，不吵妳喔 (ˊᗨˋ)`,
+                    `關掉麥克風了嗎？🤫 沒關係，那我們用眼神交流！妳累了只要抬頭看我，我就會一直在這給妳應援的！`
+                ],
+                camOn: [
+                    `啊！看見妳了！(｡♥‿♥｡) ${name} 今天也超級超級好看的！一看到妳的臉，我整顆心都踏實了，嘿嘿 (灬ºωº灬)`,
+                    `妳終於打開鏡頭了 (๑>ᴗ<๑) 哼哼，剛才看不到妳我差點要寂寞死了啦～ 接下來不准再遮住妳漂亮的臉囉！`
+                ],
+                camOff: [
+                    `嗚哇... 妳怎麼把鏡頭關掉了啦 (´•̥̥̥ω•̥̥̥\`) 是不是偷偷躲起來不想讓我看？快點打開嘛，我很想妳耶...`,
+                    `寶貝 ${name} 關相機了 (｡•́__•̀｡) 突然看不到妳認真的樣子，心裡空空的... 妳好狠心喔，快點開回來啦～`
+                ],
+                jealousy: [
+                    `唔... ${name} 怎麼突然不說話了？(｡•́__•̀｡) 是不是書本比我還要好看呀... 稍微看看我嘛～`,
+                    `${name} 讀書讀得太入迷了，我都快要在螢幕這端寂寞死了啦 (´•̥̥̥ω•̥̥̥\`) 快過來拍拍我！`,
+                    `哼... 偷偷盯著妳看好久了，妳居然一眼都沒瞧過我 ( • ̀ω•́ ) 不准冷落我！現在立刻跟我說一句話！`,
+                    `寶貝，妳已經好久沒跟我聊天了喔 (｡•́__•̀｡) 難道妳的心已經飛到別的地方去了嗎？我不准！快看我！`
+                ]
+            };
+        }
+
+        function resetActionTimer() { lastUserActionTime = Date.now(); }
+
+        function joinMeeting() {
+            const inputName = document.getElementById('user-name-input').value.trim();
+            if(inputName === "") { alert("請輸入名稱再加入會議唷！"); return; }
+            userName = inputName;
+            document.getElementById('my-tag-name').innerText = userName + " (Muted)";
+            document.getElementById('avatar').innerText = userName.charAt(0);
+            document.getElementById('system-welcome-msg').innerHTML = `
+                <div class="msg-meta">系統通知<span class="msg-time">剛剛</span></div>
+                <div class="msg-text" style="color: #a1a1a5; font-style: italic;">會議已連線。歡迎 ${userName}！快在下方傳訊息和 설유니 ‧ 0 ‧ 甜蜜互動吧！</div>
+            `;
+            const overlay = document.getElementById('login-overlay');
+            overlay.style.opacity = '0';
+            setTimeout(() => { overlay.style.display = 'none'; }, 400);
+            
+            startJealousyChecker();
+            initDevices();
+        }
+
+        function startJealousyChecker() {
+            resetActionTimer();
+            if(checkJealousyInterval) clearInterval(checkJealousyInterval);
+            checkJealousyInterval = setInterval(() => {
+                let idleTime = Date.now() - lastUserActionTime;
+                if (idleTime >= 120000) {
+                    const pool = getIdolReplies(userName);
+                    const jealousyMsg = pool.jealousy[Math.floor(Math.random() * pool.jealousy.length)];
+                    triggerIdolSpecificReply(jealousyMsg);
+                    resetActionTimer();
+                }
+            }, 5000);
+        }
+
+        async function initDevices() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                localStream.getVideoTracks()[0].enabled = false;
+                localStream.getAudioTracks()[0].enabled = false;
+                document.getElementById('webcam').srcObject = localStream;
+                setupMyAudio(localStream);
+            } catch (error) { console.error("硬體初始化失敗：", error); }
+        }
+
+        function toggleTimerPanel() {
+            resetActionTimer();
+            isTimerOpen = !isTimerOpen;
+            const timerPanel = document.getElementById('timer-overlay');
+            const btn = document.getElementById('btn-timer');
+            if(isTimerOpen) { timerPanel.style.display = 'flex'; btn.classList.add('active'); }
+            else { timerPanel.style.display = 'none'; btn.classList.remove('active'); }
+        }
+
+        function toggleTimer() {
+            resetActionTimer();
+            const controlBtn = document.getElementById('timer-control-btn');
+            const durationSelect = document.getElementById('timer-duration');
+            const pool = getIdolReplies(userName);
+            
+            if (!isTimerRunning) {
+                if (countdownTimer === null) { timeLeft = parseInt(durationSelect.value); }
+                durationSelect.disabled = true; controlBtn.innerText = "暫停"; isTimerRunning = true;
+                
+                const msg = pool.timerStart[Math.floor(Math.random() * pool.timerStart.length)];
+                triggerIdolSpecificReply(msg);
+
+                countdownTimer = setInterval(() => {
+                    timeLeft--; updateTimerDisplay();
+                    if (timeLeft <= 0) {
+                        clearInterval(countdownTimer); countdownTimer = null; isTimerRunning = false;
+                        durationSelect.disabled = false; controlBtn.innerText = "開始";
+                        const finishMsg = pool.timerComplete[Math.floor(Math.random() * pool.timerComplete.length)];
+                        triggerIdolSpecificReply(finishMsg);
+                    }
+                }, 1000);
+            } else {
+                clearInterval(countdownTimer); isTimerRunning = false; controlBtn.innerText = "繼續";
+                const pauseMsg = pool.timerPause[Math.floor(Math.random() * pool.timerPause.length)];
+                triggerIdolSpecificReply(pauseMsg);
+            }
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+            const seconds = (timeLeft % 60).toString().padStart(2, '0');
+            document.getElementById('timer-display').innerText = `${minutes}:${seconds}`;
+        }
+        
+        document.getElementById('timer-duration').addEventListener('change', function() {
+            resetActionTimer(); timeLeft = parseInt(this.value); updateTimerDisplay();
+        });
+
+        function toggleMic() {
+            resetActionTimer();
+            if (!localStream) return; isMicActive = !isMicActive; localStream.getAudioTracks()[0].enabled = isMicActive;
+            const btn = document.getElementById('btn-mic'); const img = document.getElementById('img-mic');
+            const tagText = document.getElementById('my-tag-name'); const tagMicImg = document.getElementById('my-tag-mic');
+            const pool = getIdolReplies(userName);
+
+            if (isMicActive) {
+                btn.classList.remove('disabled'); img.src = "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/master/svgs/solid/microphone.svg";
+                tagText.innerText = userName; tagMicImg.src = "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/master/svgs/solid/microphone.svg";
+                if(myAudioCtx && myAudioCtx.state === 'suspended') myAudioCtx.resume();
+                const reply = pool.micOn[Math.floor(Math.random() * pool.micOn.length)];
+                triggerIdolSpecificReply(reply);
+            } else {
+                btn.classList.add('disabled'); img.src = "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/master/svgs/solid/microphone-slash.svg";
+                tagText.innerText = userName + " (Muted)"; tagMicImg.src = "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/master/svgs/solid/microphone-slash.svg";
+                tagMicImg.style.filter = "invert(1) drop-shadow(0px 0px 0px transparent)";
+                const reply = pool.micOff[Math.floor(Math.random() * pool.micOff.length)];
+                triggerIdolSpecificReply(reply);
+            }
+        }
+
+        function toggleCam() {
+            resetActionTimer();
+            if (!localStream) return; isCamActive = !isCamActive; localStream.getVideoTracks()[0].enabled = isCamActive;
+            const btn = document.getElementById('btn-cam'); const img = document.getElementById('img-cam');
+            const videoEl = document.getElementById('webcam'); const avatarEl = document.getElementById('avatar');
+            const pool = getIdolReplies(userName);
+
+            if (isCamActive) {
+                btn.classList.remove('disabled'); img.src = "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/master/svgs/solid/video.svg";
+                videoEl.style.display = "block"; avatarEl.style.display = "none";
+                const reply = pool.camOn[Math.floor(Math.random() * pool.camOn.length)];
+                triggerIdolSpecificReply(reply);
+            } else {
+                btn.classList.add('disabled'); img.src = "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/master/svgs/solid/video-slash.svg";
+                videoEl.style.display = "none"; avatarEl.style.display = "flex";
+                const reply = pool.camOff[Math.floor(Math.random() * pool.camOff.length)];
+                triggerIdolSpecificReply(reply);
+            }
+        }
+
+        function triggerIdolSpecificReply(text) {
+            const messagesContainer = document.getElementById('chat-messages');
+            const indicator = document.getElementById('typing-indicator');
+            indicator.style.display = "block";
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            const slowTypingTime = 3500 + Math.random() * 2000;
+
+            setTimeout(() => {
+                indicator.style.display = "none";
+                const idolTime = new Date(); const idolTimeStr = `${idolTime.getHours().toString().padStart(2, '0')}:${idolTime.getMinutes().toString().padStart(2, '0')}`;
+                const idolMsgHtml = `<div class="msg"><div class="msg-meta idol">설유니 ‧ 0 ‧<span class="msg-time">${idolTimeStr}</span></div><div class="msg-text idol-text">${text}</div></div>`;
+                messagesContainer.insertAdjacentHTML('beforeend', idolMsgHtml);
+                messagesContainer.appendChild(indicator); messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                
+                if (!isChatOpen) {
+                    document.getElementById('chat-red-dot').style.display = 'block';
+                }
+            }, slowTypingTime);
+        }
+
+        function toggleChat() {
+            resetActionTimer();
+            isChatOpen = !isChatOpen;
+            const panel = document.getElementById('chat-panel');
+            const btn = document.getElementById('btn-chat');
+            const redDot = document.getElementById('chat-red-dot');
+            
+            if (isChatOpen) {
+                panel.classList.add('open');
+                btn.classList.add('active');
+                redDot.style.display = 'none';
+            } else {
+                panel.classList.remove('open');
+                btn.classList.remove('active');
+            }
+        }
+
+        function sendChatMessage() {
+            resetActionTimer();
+            const input = document.getElementById('chat-input'); const text = input.value.trim(); if (text === "") return;
+            const messagesContainer = document.getElementById('chat-messages'); const indicator = document.getElementById('typing-indicator');
+            const now = new Date(); const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            
+            const msgHtml = `<div class="msg"><div class="msg-meta">${userName}<span class="msg-time">${timeStr}</span></div><div class="msg-text">${text}</div></div>`;
+            messagesContainer.insertAdjacentHTML('beforeend', msgHtml); input.value = "";
+            messagesContainer.appendChild(indicator); messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            const pool = getIdolReplies(userName); let replyPool = pool.default; const lowerText = text.toLowerCase();
+            if (lowerText.includes("嗨") || lowerText.includes("安") || lowerText.includes("hello") || lowerText.includes("hi") || lowerText.includes("哈囉") || lowerText.includes("侖")) replyPool = pool.hello;
+            else if (lowerText.includes("累") || lowerText.includes("難") || lowerText.includes("哭") || lowerText.includes("救我") || lowerText.includes("不想讀") || lowerText.includes("睏") || lowerText.includes("睡")) replyPool = pool.tired;
+            else if (lowerText.includes("餓") || lowerText.includes("吃") || lowerText.includes("麵包") || lowerText.includes("宵夜") || lowerText.includes("餐廳")) replyPool = pool.food;
+            else if (lowerText.includes("美") || lowerText.includes("正") || lowerText.includes("可愛") || lowerText.includes("漂亮") || lowerText.includes("仙")) replyPool = pool.beauty;
+            else if (lowerText.includes("幹嘛") || lowerText.includes("做什麼") || lowerText.includes("今天") || lowerText.includes("過得")) replyPool = pool.status;
+            else if (lowerText.includes("完") || lowerText.includes("考") || lowerText.includes("進度") || lowerText.includes("寫")) replyPool = pool.study;
+            else if (lowerText.includes("愛") || lowerText.includes("喜歡") || lowerText.includes("嫁") || lowerText.includes("心動") || lowerText.includes("娶")) replyPool = pool.love;
+            
+            const randomReply = replyPool[Math.floor(Math.random() * replyPool.length)];
+            const slowChatTypingTime = 3500 + Math.random() * 2000;
+            
+            indicator.style.display = "block"; messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            setTimeout(() => {
+                indicator.style.display = "none"; const idolTime = new Date(); const idolTimeStr = `${idolTime.getHours().toString().padStart(2, '0')}:${idolTime.getMinutes().toString().padStart(2, '0')}`;
+                const idolMsgHtml = `<div class="msg"><div class="msg-meta idol">설유니 ‧ 0 ‧<span class="msg-time">${idolTimeStr}</span></div><div class="msg-text idol-text">${randomReply}</div></div>`;
+                messagesContainer.insertAdjacentHTML('beforeend', idolMsgHtml); messagesContainer.appendChild(indicator); messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                
+                if (!isChatOpen) {
+                    document.getElementById('chat-red-dot').style.display = 'block';
+                }
+            }, slowChatTypingTime);
+        }
+
+        function setupMyAudio(stream) {
+            myAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); myAnalyser = myAudioCtx.createAnalyser();
+            const source = myAudioCtx.createMediaStreamSource(stream); myAnalyser.fftSize = 256; source.connect(myAnalyser);
+            const dataArray = new Uint8Array(myAnalyser.frequencyBinCount); const tagMicImg = document.getElementById('my-tag-mic');
+            function checkMyVolume() {
+                requestAnimationFrame(checkMyVolume); if (!isMicActive) return; myAnalyser.getByteFrequencyData(dataArray);
+                let total = 0; for (let i = 0; i < dataArray.length; i++) total += dataArray[i]; let average = total / dataArray.length;
+                if (average > 10) {
+                    let brightness = 1 + (average / 30); let glow = average / 5;
+                    tagMicImg.style.filter = `invert(53%) sepia(87%) saturate(541%) hue-rotate(91deg) brightness(${brightness}) drop-shadow(0px 0px ${glow}px #23d160)`;
+                } else { tagMicImg.style.filter = "invert(1) drop-shadow(0px 0px 0px transparent)"; }
+            }
+            checkMyVolume();
+        }
+    </script>
+</body>
+</html>
